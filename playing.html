@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playing</title>
+    <style>
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 90vh;
+    text-align: center;
+    margin: 0; /* Remove default margin */
+    padding: 0; /* Remove default padding */
+}
+
+header {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background: #333;
+    color: white;
+    font-size: 20px;
+    position: absolute; /* Make sure it stays on top */
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1; /* Ensure it stays above other content */
+}
+        .logo {
+            font-weight: bold;
+        }
+        .user-info {
+            position: relative;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .user-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #007bff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            transition: background-color 0.3s ease;
+        }
+        .user-icon:hover {
+            background-color: #0056b3;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            top: 40px;
+            right: 0;
+            background: white;
+            color: black;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            width: 150px;
+            text-align: left;
+        }
+        .dropdown-content.active {
+            display: block;
+        }
+        .dropdown-content p {
+            margin: 5px 0;
+        }
+        button#logout {
+            width: 100%;
+            padding: 10px;
+            background: red;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button#logout:hover {
+            background: darkred;
+        }
+        main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 80px;
+        }
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 80px);
+            grid-template-rows: repeat(3, 80px);
+            gap: 5px;
+            margin: 20px 0;
+        }
+        .cell {
+            width: 80px;
+            height: 80px;
+            font-size: 32px;
+            background: white;
+            border: 2px solid #333;
+            cursor: pointer;
+        }
+        .cell:disabled {
+            background: #ddd;
+            cursor: not-allowed;
+        }
+        #result {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .leave-btn,
+        .restart-btn {
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+            border-radius: 5px;
+        }
+        .leave-btn:hover,
+        .restart-btn:hover {
+            background: darkgreen;
+        }
+        .leave-btn {
+            background: red;
+        }
+        .leave-btn:hover {
+            background: darkred;
+        }
+        #waiting-message {
+    font-style: italic;
+}
+
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">Tic Tac Toe</div>
+        <div class="user-info" id="user-info">
+            <svg class="user-icon" id="user-icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="4" fill="white"/>
+                <rect x="6" y="14" width="12" height="8" rx="4" fill="white"/>
+            </svg>
+            <div class="dropdown-content" id="dropdown">
+                <p id="username-display"></p>
+                <p id="win-count">Wins: 0</p>
+                <p id="loss-count">Losses: 0</p>
+                <p id="tie-count">Ties: 0</p>
+                <button id="logout">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <h2>Playing Against: <span id="bot-name"></span></h2>
+        <p id="waiting-message" style="display: none; font-size: 20px; color: #555;">Looking for an opponent...</p>
+    
+        <!-- 👇 Add these lines to show player and opponent info -->
+        <p id="player-info" style="font-size: 18px; color: #333;"></p>
+        <p id="opponent-info" style="font-size: 18px; color: #333;"></p>
+    
+        <div id="game-board">
+            <button class="cell" id="cell-0"></button>
+            <button class="cell" id="cell-1"></button>
+            <button class="cell" id="cell-2"></button>
+            <button class="cell" id="cell-3"></button>
+            <button class="cell" id="cell-4"></button>
+            <button class="cell" id="cell-5"></button>
+            <button class="cell" id="cell-6"></button>
+            <button class="cell" id="cell-7"></button>
+            <button class="cell" id="cell-8"></button>
+        </div>        
+    
+        <p id="result"></p>
+        <div id="turn-display" style="font-size: 20px; margin-top: 10px;">Turn: Player X</div>
+    
+        <button class="leave-btn" onclick="window.location.href='index.html'">Leave Game</button>
+        <button class="restart-btn" onclick="restartGame()">Restart Game</button>
+    </main>
+    
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode');
+        const isLocalMultiplayer = mode === 'local';
+        const bot = params.get("bot");
+        const isBotGame = bot !== null;
+        const token = localStorage.getItem("token");
+        const username = localStorage.getItem("username");
+        const isOnlineMultiplayer = mode === 'online';
+    
+        let currentPlayer;
+        let board = Array(9).fill(null);
+        let gameOver = false;
+        let turnInProgress = false;
+        let ws;
+        let isGameStarted = !isOnlineMultiplayer;
+        let currentGameId = null; // Will be set when game starts
+        let opponent = "";
+        let playerSymbol = "";
+
+    
+        if (!token) {
+            window.location.href = "login.html";
+        } else {
+            document.getElementById("username-display").innerText = username;
+            fetchUserStats();
+        }
+    
+        if (isOnlineMultiplayer) {
+            ws = new WebSocket('ws://localhost:5000');
+    
+            ws.onopen = () => {
+                console.log('Connected to WebSocket');
+                document.getElementById("waiting-message").style.display = "block";
+                ws.send(JSON.stringify({ 
+                    action: 'join', 
+                    username 
+                }));
+            };
+    
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleGameUpdate(data);
+            };
+        }
+    
+        function handleGameUpdate(data) {
+    if (data.action === "startGame") {
+        currentPlayer = data.currentPlayer;
+        board = data.board;
+        isGameStarted = true;
+        gameOver = false;
+        currentGameId = data.gameId;
+        playerSymbol = data.symbol;
+        opponent = data.opponent;
+
+        document.getElementById("waiting-message").style.display = "none";
+        document.getElementById("result").innerText = "";
+        document.getElementById("turn-display").innerText = `Turn: Player ${data.currentPlayer}`;
+        
+        // Show player info
+        document.getElementById("player-info").innerText = `You are ${playerSymbol} (${username})`;
+        document.getElementById("opponent-info").innerText = `Opponent: ${opponent}`;
+
+        renderBoard();
+    } 
+    else if (data.action === "updateBoard") {
+        board = data.board;
+        currentPlayer = data.currentPlayer;
+        document.getElementById("turn-display").innerText = `Turn: Player ${data.currentPlayer}`;
+        renderBoard();
+    } 
+    else if (data.action === "gameOver") {
+        gameOver = true;
+        if (data.winner === "Tie") {
+            document.getElementById("result").innerText = "It's a Tie!";
+        } else {
+            const winnerName = data.winner === playerSymbol ? username : opponent;
+            document.getElementById("result").innerText = `${winnerName} (${data.winner}) Wins!`;
+        }
+        renderBoard();
+    }
+}
+function updateBoard(newBoard) {
+    board = newBoard;
+    renderBoard();
+}
+function renderBoard() {
+    document.querySelectorAll(".cell").forEach((cell, index) => {
+        cell.innerText = board[index] || "";
+        cell.disabled = !!board[index] || gameOver || (isOnlineMultiplayer && currentPlayer !== playerSymbol);
+    });
+}
+
+    
+        function fetchUserStats() {
+            fetch(`http://localhost:5000/user-stats/${username}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.wins !== undefined) {
+                        updateStatsDropdown(data.wins, data.losses, data.ties);
+                    }
+                })
+                .catch(error => console.error("Error fetching stats:", error));
+        }
+    
+        document.getElementById("logout").addEventListener("click", () => {
+            localStorage.clear();
+            window.location.href = "login.html";
+        });
+    
+        const userIcon = document.getElementById("user-info");
+        const dropdown = document.getElementById("dropdown");
+    
+        userIcon.addEventListener("click", (event) => {
+            dropdown.classList.toggle("active");
+            event.stopPropagation();
+        });
+    
+        document.addEventListener("click", (event) => {
+            if (!userIcon.contains(event.target)) {
+                dropdown.classList.remove("active");
+            }
+        });
+    
+        function restartGame() {
+            board = Array(9).fill(null);
+            currentPlayer = "X";
+            gameOver = false;
+            turnInProgress = false;
+            document.getElementById("result").innerText = "";
+    
+            document.querySelectorAll(".cell").forEach((cell, index) => {
+                cell.innerText = "";
+                cell.disabled = false;
+                cell.addEventListener("click", () => makeMove(index));
+            });
+    
+            document.getElementById("turn-display").innerText = `Turn: Player X`;
+    
+            if (isBotGame) {
+                document.getElementById("bot-name").innerText = bot.charAt(0).toUpperCase() + bot.slice(1);
+            } else if (isLocalMultiplayer) {
+                document.getElementById("bot-name").innerText = "Local Multiplayer";
+            }
+        }
+    
+        function makeMove(index) {
+            if (!isGameStarted) return;
+            if (gameOver || board[index] || turnInProgress) return;
+    
+            board[index] = currentPlayer;
+            const cell = document.querySelectorAll(".cell")[index];
+            cell.innerText = currentPlayer;
+            cell.disabled = true;
+    
+            if (checkWinner()) {
+                document.getElementById("result").innerText = `${currentPlayer} Wins!`;
+                gameOver = true;
+                updateStats(currentPlayer === "X" ? "win" : "loss");
+                return;
+            } else if (board.every(cell => cell)) {
+                document.getElementById("result").innerText = "It's a Tie!";
+                gameOver = true;
+                updateStats("tie");
+                return;
+            }
+    
+            if (isOnlineMultiplayer && currentGameId) {
+                ws.send(JSON.stringify({ 
+                    action: 'move', 
+                    gameId: currentGameId, 
+                    move: index, 
+                    player: currentPlayer 
+                }));
+            }
+    
+            if (isBotGame && !gameOver) {
+                turnInProgress = true;
+                currentPlayer = "O";
+                document.getElementById("turn-display").innerText = `Turn: Player O`;
+                setTimeout(botMove, 500);
+            } else if (isLocalMultiplayer) {
+                currentPlayer = currentPlayer === "X" ? "O" : "X";
+                document.getElementById("turn-display").innerText = `Turn: Player ${currentPlayer}`;
+            }
+        }
+    
+        function updateBoard(newBoard) {
+            board = newBoard;
+            document.querySelectorAll(".cell").forEach((cell, index) => {
+                cell.innerText = board[index] || "";
+                cell.disabled = board[index] !== null;
+            });
+        }
+    
+        function updateStats(result) {
+            fetch("http://localhost:5000/update-stats", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, result })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Stats updated:", data);
+                fetchUserStats();
+            })
+            .catch(error => console.error("Error updating stats:", error));
+        }
+    
+        function updateStatsDropdown(wins, losses, ties) {
+            document.getElementById("win-count").innerText = `Wins: ${wins}`;
+            document.getElementById("loss-count").innerText = `Losses: ${losses}`;
+            document.getElementById("tie-count").innerText = `Ties: ${ties}`;
+        }
+    
+        function botMove() {
+            if (gameOver) return;
+    
+            let bestMove;
+            if (bot === "beginner") {
+                bestMove = randomMove();
+            } else if (bot === "normal") {
+                bestMove = smartMove();
+            } else {
+                bestMove = minimax(board, "O").index;
+            }
+    
+            board[bestMove] = "O";
+            const cell = document.querySelectorAll(".cell")[bestMove];
+            cell.innerText = "O";
+            cell.disabled = true;
+    
+            if (checkWinner()) {
+                document.getElementById("result").innerText = `${currentPlayer} Wins!`;
+                gameOver = true;
+                updateStats("loss");
+                return;
+            } else if (board.every(cell => cell)) {
+                document.getElementById("result").innerText = "It's a Tie!";
+                gameOver = true;
+                updateStats("tie");
+                return;
+            }
+    
+            currentPlayer = "X";
+            turnInProgress = false;
+            document.getElementById("turn-display").innerText = `Turn: Player X`;
+        }
+    
+        function randomMove() {
+            let availableMoves = board.map((cell, index) => cell === null ? index : null).filter(index => index !== null);
+            return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+        }
+    
+        function smartMove() {
+            let availableMoves = board.map((cell, index) => cell === null ? index : null).filter(index => index !== null);
+            for (let move of availableMoves) {
+                let tempBoard = [...board];
+                tempBoard[move] = "O";
+                if (checkWinner(tempBoard)) return move;
+            }
+            for (let move of availableMoves) {
+                let tempBoard = [...board];
+                tempBoard[move] = "X";
+                if (checkWinner(tempBoard)) return move;
+            }
+            return availableMoves.includes(4) ? 4 : availableMoves[Math.floor(Math.random() * availableMoves.length)];
+        }
+    
+        function minimax(newBoard, player) {
+            let availableMoves = newBoard.map((cell, index) => cell === null ? index : null).filter(index => index !== null);
+    
+            if (checkWinner(newBoard)) {
+                return { score: player === "O" ? -10 : 10 };
+            } else if (availableMoves.length === 0) {
+                return { score: 0 };
+            }
+    
+            let moves = [];
+            for (let move of availableMoves) {
+                let tempBoard = [...newBoard];
+                tempBoard[move] = player;
+                let result = minimax(tempBoard, player === "O" ? "X" : "O");
+                moves.push({ index: move, score: result.score });
+            }
+    
+            return moves.reduce((best, move) =>
+                (player === "O" ? move.score > best.score : move.score < best.score) ? move : best
+            );
+        }
+    
+        function checkWinner(boardState = board) {
+            const winPatterns = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                [0, 4, 8], [2, 4, 6]
+            ];
+            return winPatterns.some(pattern =>
+                boardState[pattern[0]] &&
+                boardState[pattern[0]] === boardState[pattern[1]] &&
+                boardState[pattern[0]] === boardState[pattern[2]]
+            );
+        }
+    
+        restartGame();
+    </script>
+    
+    
+    
+    
+    
+    
+</body>
+</html>
